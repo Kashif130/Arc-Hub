@@ -1,0 +1,1456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1200">
+<title>ArcOS Testnet Hub</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<style>
+  :root {
+    --arc: #00d4ff;
+    --arc2: #0088cc;
+    --bg: #03080f;
+    --panel: #060d18;
+    --border: #0a2040;
+    --text: #c8e0f4;
+    --muted: #4a6a8a;
+    --green: #00ff88;
+    --yellow: #ffd600;
+    --red: #ff3355;
+    --font-mono: 'Share Tech Mono', monospace;
+    --font-main: 'Rajdhani', sans-serif;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-main);
+    min-height: 100vh;
+    min-width: 1200px;
+    overflow-x: auto;
+    background-image:
+      radial-gradient(ellipse 80% 40% at 50% -10%, rgba(0,212,255,0.07) 0%, transparent 70%),
+      repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(0,136,204,0.04) 40px),
+      repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(0,136,204,0.04) 40px);
+  }
+
+  /* ─── TOPBAR ─── */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 32px;
+    height: 60px;
+    background: rgba(6,13,24,0.95);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top:0; z-index:100;
+    backdrop-filter: blur(12px);
+  }
+  .logo {
+    display:flex; align-items:center; gap:12px;
+    font-family: var(--font-mono);
+    font-size: 20px; color: var(--arc);
+    letter-spacing: 3px; text-transform: uppercase;
+  }
+  .logo-dot {
+    width:10px; height:10px; border-radius:50%;
+    background: var(--arc);
+    box-shadow: 0 0 12px var(--arc);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 8px var(--arc); }
+    50%      { box-shadow: 0 0 22px var(--arc); }
+  }
+  .nav-links {
+    display:flex; gap:4px;
+  }
+  .nav-btn {
+    background:none; border:none;
+    color: var(--muted);
+    font-family: var(--font-main); font-size:15px; font-weight:600;
+    padding: 6px 18px; border-radius:6px; cursor:pointer;
+    letter-spacing:1px; text-transform:uppercase;
+    transition: all .2s;
+  }
+  .nav-btn:hover, .nav-btn.active {
+    color: var(--arc); background: rgba(0,212,255,0.08);
+  }
+  .connect-btn {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    background: transparent;
+    border: 1px solid var(--arc);
+    color: var(--arc);
+    padding: 8px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all .2s;
+    position: relative; overflow:hidden;
+  }
+  .connect-btn::before {
+    content:''; position:absolute; inset:0;
+    background: var(--arc); opacity:0;
+    transition: opacity .2s;
+  }
+  .connect-btn:hover::before { opacity:.12; }
+  .connect-btn.connected {
+    border-color: var(--green); color: var(--green);
+  }
+
+  /* ─── NETWORK BADGE ─── */
+  .net-badge {
+    display:flex; align-items:center; gap:8px;
+    font-family: var(--font-mono); font-size:12px;
+    color: var(--muted);
+    background: rgba(0,212,255,0.04);
+    border: 1px solid var(--border);
+    border-radius:6px; padding:6px 12px;
+  }
+  .net-dot { width:7px;height:7px;border-radius:50%; background:var(--muted); }
+  .net-dot.ok { background:var(--green); box-shadow:0 0 8px var(--green); }
+  .net-dot.wrong { background:var(--yellow); box-shadow:0 0 8px var(--yellow); }
+
+  /* ─── MAIN LAYOUT ─── */
+  .page { display:none; }
+  .page.active { display:block; }
+
+  .main-wrap {
+    padding: 32px;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+
+  /* ─── HERO ─── */
+  .hero {
+    text-align:center;
+    padding: 60px 0 40px;
+  }
+  .hero-title {
+    font-family: var(--font-mono);
+    font-size: 52px; color: var(--arc);
+    letter-spacing: 6px;
+    text-shadow: 0 0 40px rgba(0,212,255,0.4);
+    margin-bottom: 12px;
+  }
+  .hero-sub {
+    font-size:18px; color:var(--muted); letter-spacing:2px;
+    font-weight:500; text-transform:uppercase;
+  }
+  .hero-chain {
+    display:inline-flex; align-items:center; gap:8px;
+    margin-top:20px;
+    background: rgba(0,212,255,0.06);
+    border:1px solid rgba(0,212,255,0.2);
+    border-radius:50px; padding:8px 24px;
+    font-family:var(--font-mono); font-size:13px; color:var(--arc);
+    letter-spacing:2px;
+  }
+
+  /* ─── STATS ROW ─── */
+  .stats-row {
+    display:grid; grid-template-columns:repeat(4,1fr); gap:16px;
+    margin-bottom:32px;
+  }
+  .stat-card {
+    background: var(--panel);
+    border:1px solid var(--border);
+    border-radius:12px; padding:24px;
+    position:relative; overflow:hidden;
+    transition: border-color .2s;
+  }
+  .stat-card::after {
+    content:''; position:absolute;
+    top:0; left:0; right:0; height:2px;
+    background: linear-gradient(90deg, var(--arc), var(--arc2));
+    opacity:.5;
+  }
+  .stat-card:hover { border-color: rgba(0,212,255,0.3); }
+  .stat-label {
+    font-size:11px; text-transform:uppercase;
+    letter-spacing:2px; color:var(--muted);
+    margin-bottom:10px;
+  }
+  .stat-val {
+    font-family:var(--font-mono); font-size:26px;
+    color: var(--arc); font-weight:400;
+  }
+  .stat-val.green { color:var(--green); }
+
+  /* ─── TWO-COL ─── */
+  .two-col { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:24px; }
+  .three-col { display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; margin-bottom:24px; }
+
+  /* ─── CARDS ─── */
+  .card {
+    background: var(--panel);
+    border:1px solid var(--border);
+    border-radius:12px; padding:28px;
+  }
+  .card-title {
+    font-family:var(--font-mono); font-size:14px;
+    letter-spacing:2px; color:var(--arc);
+    text-transform:uppercase; margin-bottom:20px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .card-title .icon { font-size:18px; }
+
+  /* ─── FORM ELEMENTS ─── */
+  .field { margin-bottom:16px; }
+  .field label {
+    display:block; font-size:11px; text-transform:uppercase;
+    letter-spacing:2px; color:var(--muted); margin-bottom:8px;
+  }
+  .field input, .field select, .field textarea {
+    width:100%;
+    background: rgba(0,0,0,0.4);
+    border:1px solid var(--border);
+    border-radius:8px; padding:12px 16px;
+    color: var(--text);
+    font-family:var(--font-mono); font-size:14px;
+    outline:none; transition: border-color .2s;
+    -webkit-appearance: none;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    border-color: rgba(0,212,255,0.4);
+    box-shadow: 0 0 0 3px rgba(0,212,255,0.05);
+  }
+  .field select option { background:#060d18; }
+  .field textarea { resize:vertical; min-height:80px; }
+
+  /* ─── BUTTONS ─── */
+  .btn {
+    display:inline-flex; align-items:center; gap:8px;
+    font-family:var(--font-main); font-weight:700;
+    font-size:14px; letter-spacing:2px; text-transform:uppercase;
+    padding:12px 28px; border-radius:8px; border:none;
+    cursor:pointer; transition:all .2s; position:relative;
+    overflow:hidden; white-space:nowrap;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--arc2), var(--arc));
+    color:#000;
+    box-shadow: 0 0 20px rgba(0,212,255,0.2);
+  }
+  .btn-primary:hover {
+    box-shadow: 0 0 32px rgba(0,212,255,0.4);
+    transform: translateY(-1px);
+  }
+  .btn-outline {
+    background:transparent; color:var(--arc);
+    border:1px solid var(--arc);
+  }
+  .btn-outline:hover { background:rgba(0,212,255,0.08); }
+  .btn-ghost {
+    background:rgba(0,212,255,0.06); color:var(--arc);
+    border:1px solid rgba(0,212,255,0.15);
+  }
+  .btn-danger {
+    background:rgba(255,51,85,0.12); color:var(--red);
+    border:1px solid rgba(255,51,85,0.3);
+  }
+  .btn-danger:hover { background:rgba(255,51,85,0.2); }
+  .btn-sm { padding:8px 16px; font-size:12px; }
+  .btn:disabled { opacity:.4; cursor:not-allowed; transform:none !important; }
+  .btn-full { width:100%; justify-content:center; }
+
+  /* ─── ADDRESS DISPLAY ─── */
+  .addr {
+    font-family:var(--font-mono); font-size:13px; color:var(--arc);
+    background:rgba(0,212,255,0.04); border:1px solid var(--border);
+    border-radius:6px; padding:12px 14px;
+    word-break:break-all; letter-spacing:1px;
+  }
+
+  /* ─── TX LIST ─── */
+  .tx-item {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 0; border-bottom:1px solid var(--border);
+  }
+  .tx-item:last-child { border-bottom:none; }
+  .tx-hash {
+    font-family:var(--font-mono); font-size:12px; color:var(--arc);
+    cursor:pointer; text-decoration:underline; text-underline-offset:3px;
+  }
+  .tx-status {
+    font-size:11px; padding:3px 10px; border-radius:50px;
+    font-weight:700; letter-spacing:1px; text-transform:uppercase;
+  }
+  .tx-status.ok { background:rgba(0,255,136,0.1); color:var(--green); }
+  .tx-status.pending { background:rgba(255,214,0,0.1); color:var(--yellow); }
+  .tx-status.fail { background:rgba(255,51,85,0.1); color:var(--red); }
+
+  /* ─── ALERT ─── */
+  .alert {
+    border-radius:8px; padding:14px 18px;
+    font-size:14px; margin-bottom:16px;
+    border:1px solid; display:flex; align-items:flex-start; gap:10px;
+  }
+  .alert-info  { background:rgba(0,212,255,0.06); border-color:rgba(0,212,255,0.2); color:var(--arc); }
+  .alert-ok    { background:rgba(0,255,136,0.06); border-color:rgba(0,255,136,0.2); color:var(--green); }
+  .alert-warn  { background:rgba(255,214,0,0.06); border-color:rgba(255,214,0,0.2); color:var(--yellow); }
+  .alert-err   { background:rgba(255,51,85,0.06); border-color:rgba(255,51,85,0.2); color:var(--red); }
+
+  /* ─── LOADER ─── */
+  .spin {
+    display:inline-block; width:16px; height:16px;
+    border:2px solid rgba(0,212,255,0.2); border-top-color:var(--arc);
+    border-radius:50%; animation:spin .6s linear infinite;
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* ─── TABS ─── */
+  .tabs { display:flex; gap:4px; margin-bottom:20px; }
+  .tab {
+    background:none; border:none; color:var(--muted);
+    font-family:var(--font-main); font-size:14px; font-weight:600;
+    padding:8px 20px; border-radius:6px; cursor:pointer;
+    letter-spacing:1px; text-transform:uppercase; transition:all .2s;
+    border-bottom:2px solid transparent;
+  }
+  .tab.active { color:var(--arc); border-bottom-color:var(--arc); }
+  .tab-panel { display:none; }
+  .tab-panel.active { display:block; }
+
+  /* ─── TOKEN CARD ─── */
+  .token-item {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px; background:rgba(0,0,0,0.3);
+    border-radius:8px; margin-bottom:8px;
+    border:1px solid var(--border);
+  }
+  .token-name { font-weight:700; font-size:16px; }
+  .token-bal { font-family:var(--font-mono); font-size:18px; color:var(--arc); }
+
+  /* ─── STEP INDICATOR ─── */
+  .steps { display:flex; align-items:center; gap:0; margin-bottom:24px; }
+  .step {
+    flex:1; text-align:center; padding:10px;
+    font-size:12px; letter-spacing:1px; text-transform:uppercase;
+    color:var(--muted); border-bottom:2px solid var(--border);
+    transition:all .3s;
+  }
+  .step.done { color:var(--green); border-bottom-color:var(--green); }
+  .step.active { color:var(--arc); border-bottom-color:var(--arc); }
+
+  /* ─── COPY BTN ─── */
+  .copy-wrap { position:relative; }
+  .copy-btn {
+    position:absolute; right:10px; top:50%; transform:translateY(-50%);
+    background:rgba(0,212,255,0.1); border:none; color:var(--arc);
+    padding:4px 10px; border-radius:4px; cursor:pointer; font-size:11px;
+    font-family:var(--font-mono); transition:all .2s;
+  }
+  .copy-btn:hover { background:rgba(0,212,255,0.2); }
+
+  /* ─── DIVIDER ─── */
+  .divider { height:1px; background:var(--border); margin:20px 0; }
+
+  /* ─── CONTRACT SECTION ─── */
+  .method-item {
+    background:rgba(0,0,0,0.3); border:1px solid var(--border);
+    border-radius:8px; margin-bottom:8px; overflow:hidden;
+  }
+  .method-header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 16px; cursor:pointer;
+    transition:background .2s;
+  }
+  .method-header:hover { background:rgba(0,212,255,0.04); }
+  .method-name { font-family:var(--font-mono); font-size:13px; color:var(--arc); }
+  .method-type { font-size:11px; padding:2px 8px; border-radius:50px; font-weight:700; }
+  .method-type.read { background:rgba(0,212,255,0.1); color:var(--arc); }
+  .method-type.write { background:rgba(0,255,136,0.1); color:var(--green); }
+  .method-body { display:none; padding:16px; border-top:1px solid var(--border); }
+  .method-body.open { display:block; }
+
+  /* ─── FAUCET SPECIFIC ─── */
+  .faucet-big {
+    text-align:center; padding:40px 20px;
+  }
+  .faucet-amount {
+    font-family:var(--font-mono); font-size:60px;
+    color:var(--arc); text-shadow:0 0 40px rgba(0,212,255,0.4);
+    letter-spacing:4px;
+  }
+  .faucet-unit { font-size:22px; color:var(--muted); letter-spacing:4px; }
+
+  /* ─── INFO TABLE ─── */
+  .info-table { width:100%; border-collapse:collapse; }
+  .info-table tr { border-bottom:1px solid var(--border); }
+  .info-table tr:last-child { border-bottom:none; }
+  .info-table td { padding:14px 0; font-size:14px; }
+  .info-table td:first-child { color:var(--muted); width:40%; text-transform:uppercase; letter-spacing:1px; font-size:12px; }
+  .info-table td:last-child { font-family:var(--font-mono); color:var(--text); }
+
+  /* ─── MODAL ─── */
+  .modal-bg {
+    display:none; position:fixed; inset:0;
+    background:rgba(0,0,0,0.7); z-index:1000;
+    align-items:center; justify-content:center;
+    backdrop-filter:blur(4px);
+  }
+  .modal-bg.open { display:flex; }
+  .modal {
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:16px; padding:32px; max-width:480px; width:90%;
+    max-height:80vh; overflow-y:auto;
+  }
+  .modal-title {
+    font-family:var(--font-mono); font-size:16px; color:var(--arc);
+    letter-spacing:2px; margin-bottom:20px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .modal-close {
+    background:none; border:none; color:var(--muted);
+    font-size:20px; cursor:pointer; line-height:1;
+  }
+  .modal-close:hover { color:var(--text); }
+
+  /* ─── NFT CARD ─── */
+  .nft-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .nft-card {
+    background:rgba(0,0,0,0.4); border:1px solid var(--border);
+    border-radius:12px; overflow:hidden; cursor:pointer;
+    transition:all .2s;
+  }
+  .nft-card:hover { border-color:rgba(0,212,255,0.4); transform:translateY(-2px); }
+  .nft-img {
+    width:100%; aspect-ratio:1;
+    display:flex; align-items:center; justify-content:center;
+    font-size:48px;
+  }
+  .nft-info { padding:12px; }
+  .nft-name { font-weight:700; font-size:14px; margin-bottom:4px; }
+  .nft-id { font-family:var(--font-mono); font-size:11px; color:var(--muted); }
+
+  /* ─── EMPTY STATE ─── */
+  .empty {
+    text-align:center; padding:48px 20px;
+    color:var(--muted);
+  }
+  .empty-icon { font-size:48px; margin-bottom:16px; opacity:.4; }
+  .empty-text { font-size:14px; letter-spacing:1px; text-transform:uppercase; }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-dot"></div>
+    ArcOS
+  </div>
+  <nav class="nav-links">
+    <button class="nav-btn active" onclick="showPage('dashboard')">Dashboard</button>
+    <button class="nav-btn" onclick="showPage('wallet')">Wallet</button>
+    <button class="nav-btn" onclick="showPage('faucet')">Faucet</button>
+    <button class="nav-btn" onclick="showPage('send')">Send</button>
+    <button class="nav-btn" onclick="showPage('contracts')">Contracts</button>
+    <button class="nav-btn" onclick="showPage('nft')">NFT</button>
+    <button class="nav-btn" onclick="showPage('explorer')">Explorer</button>
+  </nav>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div class="net-badge">
+      <div class="net-dot" id="netDot"></div>
+      <span id="netLabel" style="font-family:var(--font-mono);font-size:11px;">Not Connected</span>
+    </div>
+    <button class="connect-btn" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
+  </div>
+</div>
+
+<!-- ════════════════ DASHBOARD ════════════════ -->
+<div class="page active" id="pg-dashboard">
+<div class="main-wrap">
+
+  <div class="hero">
+    <div class="hero-title">ARC TESTNET HUB</div>
+    <div class="hero-sub">Arc Chain Testnet — Development Environment</div>
+    <div class="hero-chain">
+      <span style="color:var(--green)">●</span>
+      Chain ID: 5042002 &nbsp;|&nbsp; RPC: rpc.testnet.arc.network &nbsp;|&nbsp; Currency: USDC
+    </div>
+  </div>
+
+  <div id="walletAlert"></div>
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Wallet Balance</div>
+      <div class="stat-val" id="dashBalance">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Network</div>
+      <div class="stat-val green" id="dashNetwork">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Block Number</div>
+      <div class="stat-val" id="dashBlock">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Gas Price (Gwei)</div>
+      <div class="stat-val" id="dashGas">—</div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title"><span class="icon">⛓</span> Network Info</div>
+      <table class="info-table">
+        <tr><td>Network Name</td><td>Arc Testnet</td></tr>
+        <tr><td>RPC URL</td><td>https://rpc.testnet.arc.network</td></tr>
+        <tr><td>Chain ID</td><td>5042002</td></tr>
+        <tr><td>Currency</td><td>USDC</td></tr>
+        <tr><td>Explorer</td><td><a href="https://testnet.arcscan.app" target="_blank" style="color:var(--arc)">testnet.arcscan.app</a></td></tr>
+        <tr><td>Status</td><td id="netStatus" style="color:var(--muted)">—</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="icon">🔗</span> Quick Actions</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <button class="btn btn-outline btn-full" onclick="addArcNetwork()">➕ Add Arc Testnet to MetaMask</button>
+        <button class="btn btn-ghost btn-full" onclick="showPage('faucet')">🚰 Get Test Tokens from Faucet</button>
+        <button class="btn btn-ghost btn-full" onclick="showPage('send')">📤 Send Transaction</button>
+        <button class="btn btn-ghost btn-full" onclick="showPage('contracts')">📄 Deploy / Interact with Contract</button>
+        <button class="btn btn-ghost btn-full" onclick="window.open('https://testnet.arcscan.app','_blank')">🔍 Open Block Explorer</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="icon">📋</span> Connected Address</div>
+    <div id="dashAddr" class="addr">— Connect your wallet to see your address —</div>
+    <div style="margin-top:12px;">
+      <button class="btn btn-sm btn-ghost" onclick="copyAddr()">📋 Copy Address</button>
+      <button class="btn btn-sm btn-ghost" style="margin-left:8px;" onclick="viewOnExplorer()">🔍 View on Explorer</button>
+    </div>
+  </div>
+
+</div></div>
+
+<!-- ════════════════ WALLET ════════════════ -->
+<div class="page" id="pg-wallet">
+<div class="main-wrap">
+  <div class="card-title" style="font-size:18px;padding:20px 0 8px;"><span class="icon">💳</span> Wallet Overview</div>
+
+  <div class="two-col" style="margin-bottom:24px;">
+    <div class="card">
+      <div class="card-title">Address</div>
+      <div id="walAddr" class="addr">Not connected</div>
+      <div style="margin-top:12px;">
+        <button class="btn btn-sm btn-ghost" onclick="copyAddr()">📋 Copy</button>
+        <button class="btn btn-sm btn-ghost" style="margin-left:8px;" onclick="viewOnExplorer()">🔍 Explorer</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">USDC Balance</div>
+      <div class="stat-val" id="walBalance" style="font-size:36px;margin-bottom:8px;">—</div>
+      <div style="color:var(--muted);font-size:13px;">Arc Testnet USDC</div>
+      <div style="margin-top:16px;">
+        <button class="btn btn-sm btn-primary" onclick="refreshBalance()">🔄 Refresh</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:24px;">
+    <div class="card-title">Token Balances</div>
+    <div id="tokenList">
+      <div class="empty">
+        <div class="empty-icon">🪙</div>
+        <div class="empty-text">Connect wallet to see tokens</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Recent Activity</div>
+    <div id="txList">
+      <div class="empty">
+        <div class="empty-icon">📭</div>
+        <div class="empty-text">No transactions yet</div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<!-- ════════════════ FAUCET ════════════════ -->
+<div class="page" id="pg-faucet">
+<div class="main-wrap">
+  <div class="card">
+    <div class="card-title"><span class="icon">🚰</span> Testnet Faucet</div>
+
+    <div class="faucet-big">
+      <div class="faucet-amount">100</div>
+      <div class="faucet-unit">USDC / Request</div>
+      <div style="color:var(--muted);font-size:13px;margin-top:12px;font-family:var(--font-mono);">Cooldown: 24 hours per address</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="two-col">
+      <div>
+        <div class="field">
+          <label>Recipient Address</label>
+          <div class="copy-wrap">
+            <input type="text" id="faucetAddr" placeholder="0x... or use connected wallet">
+            <button class="copy-btn" onclick="useMyAddr()">Use Mine</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Amount (USDC)</label>
+          <input type="number" id="faucetAmount" value="100" max="100" min="1">
+        </div>
+        <button class="btn btn-primary btn-full" onclick="requestFaucet()" id="faucetBtn">🚰 Request Tokens</button>
+      </div>
+      <div>
+        <div class="card-title" style="font-size:13px;">How it works</div>
+        <div style="font-size:14px;line-height:1.8;color:var(--muted);">
+          <p>1. Connect your MetaMask wallet</p>
+          <p>2. Switch to Arc Testnet (Chain ID: 5042002)</p>
+          <p>3. Enter your address or click "Use Mine"</p>
+          <p>4. Request up to 100 USDC test tokens</p>
+          <p>5. Wait 24 hours before requesting again</p>
+        </div>
+        <div class="divider"></div>
+        <div class="alert alert-warn">
+          ⚠️ These are testnet tokens only. They have no real value.
+        </div>
+      </div>
+    </div>
+
+    <div id="faucetResult" style="margin-top:16px;"></div>
+  </div>
+</div></div>
+
+<!-- ════════════════ SEND ════════════════ -->
+<div class="page" id="pg-send">
+<div class="main-wrap">
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title"><span class="icon">📤</span> Send Transaction</div>
+
+      <div class="steps" id="sendSteps">
+        <div class="step active" id="step1">1. Details</div>
+        <div class="step" id="step2">2. Confirm</div>
+        <div class="step" id="step3">3. Done</div>
+      </div>
+
+      <div id="sendForm">
+        <div class="field">
+          <label>To Address</label>
+          <input type="text" id="sendTo" placeholder="0x...">
+        </div>
+        <div class="field">
+          <label>Amount (USDC)</label>
+          <input type="number" id="sendAmt" placeholder="0.0" step="0.001">
+        </div>
+        <div class="field">
+          <label>Data (optional hex)</label>
+          <input type="text" id="sendData" placeholder="0x">
+        </div>
+        <div class="field">
+          <label>Gas Limit</label>
+          <input type="number" id="sendGas" value="21000">
+        </div>
+        <button class="btn btn-primary btn-full" onclick="previewTx()">Preview Transaction</button>
+      </div>
+
+      <div id="sendPreview" style="display:none;">
+        <div class="alert alert-info" id="previewBox"></div>
+        <div style="display:flex;gap:10px;margin-top:16px;">
+          <button class="btn btn-ghost" onclick="cancelPreview()">← Back</button>
+          <button class="btn btn-primary" style="flex:1;" onclick="sendTx()">✅ Confirm & Send</button>
+        </div>
+      </div>
+
+      <div id="sendResult" style="margin-top:16px;"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="icon">📊</span> Transaction History</div>
+      <div id="sendHistory">
+        <div class="empty">
+          <div class="empty-icon">📭</div>
+          <div class="empty-text">No history</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<!-- ════════════════ CONTRACTS ════════════════ -->
+<div class="page" id="pg-contracts">
+<div class="main-wrap">
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('ct','deploy')">Deploy</button>
+    <button class="tab" onclick="switchTab('ct','interact')">Interact</button>
+    <button class="tab" onclick="switchTab('ct','verify')">Verify</button>
+  </div>
+
+  <!-- Deploy -->
+  <div class="tab-panel active" id="ct-deploy">
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title"><span class="icon">🚀</span> Deploy Contract</div>
+        <div class="field">
+          <label>Contract Name</label>
+          <input type="text" id="ctName" placeholder="MyToken">
+        </div>
+        <div class="field">
+          <label>Bytecode</label>
+          <textarea id="ctBytecode" placeholder="0x608060..." style="min-height:120px;"></textarea>
+        </div>
+        <div class="field">
+          <label>ABI (JSON)</label>
+          <textarea id="ctABI" placeholder='[{"type":"function"...}]' style="min-height:80px;"></textarea>
+        </div>
+        <div class="field">
+          <label>Constructor Args (JSON array)</label>
+          <input type="text" id="ctArgs" placeholder='["arg1", 1000]'>
+        </div>
+        <button class="btn btn-primary btn-full" onclick="deployContract()">🚀 Deploy to Arc Testnet</button>
+        <div id="deployResult" style="margin-top:16px;"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Quick Templates</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <button class="btn btn-ghost btn-full" onclick="loadTemplate('erc20')">ERC-20 Token</button>
+          <button class="btn btn-ghost btn-full" onclick="loadTemplate('erc721')">ERC-721 NFT</button>
+          <button class="btn btn-ghost btn-full" onclick="loadTemplate('simple')">Simple Storage</button>
+          <button class="btn btn-ghost btn-full" onclick="loadTemplate('multisig')">Multisig Wallet</button>
+        </div>
+        <div class="divider"></div>
+        <div class="card-title" style="font-size:13px;">Deployed Contracts</div>
+        <div id="deployedList">
+          <div class="empty"><div class="empty-text" style="font-size:12px;">None yet</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interact -->
+  <div class="tab-panel" id="ct-interact">
+    <div class="card" style="margin-bottom:20px;">
+      <div class="card-title"><span class="icon">⚙️</span> Interact with Contract</div>
+      <div class="two-col" style="margin-bottom:0;">
+        <div class="field">
+          <label>Contract Address</label>
+          <input type="text" id="interactAddr" placeholder="0x...">
+        </div>
+        <div class="field">
+          <label>ABI (JSON)</label>
+          <textarea id="interactABI" placeholder='[{"type":"function"...}]' style="min-height:52px;"></textarea>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="loadContract()">Load Contract</button>
+    </div>
+    <div id="contractMethods"></div>
+  </div>
+
+  <!-- Verify -->
+  <div class="tab-panel" id="ct-verify">
+    <div class="card">
+      <div class="card-title"><span class="icon">✅</span> Verify Contract</div>
+      <div class="alert alert-info">Verification is done through the Arc Testnet Explorer. Click below to open the verification page.</div>
+      <div class="field">
+        <label>Contract Address</label>
+        <input type="text" id="verifyAddr" placeholder="0x...">
+      </div>
+      <button class="btn btn-primary" onclick="openVerify()">Open in Explorer</button>
+    </div>
+  </div>
+</div></div>
+
+<!-- ════════════════ NFT ════════════════ -->
+<div class="page" id="pg-nft">
+<div class="main-wrap">
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('nft','mint')">Mint NFT</button>
+    <button class="tab" onclick="switchTab('nft','collection')">My Collection</button>
+    <button class="tab" onclick="switchTab('nft','transfer')">Transfer</button>
+  </div>
+
+  <!-- Mint -->
+  <div class="tab-panel active" id="nft-mint">
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title"><span class="icon">🎨</span> Mint Test NFT</div>
+        <div class="field">
+          <label>NFT Name</label>
+          <input type="text" id="nftName" placeholder="My Awesome NFT">
+        </div>
+        <div class="field">
+          <label>Description</label>
+          <textarea id="nftDesc" placeholder="This is my test NFT on Arc Testnet"></textarea>
+        </div>
+        <div class="field">
+          <label>Image URL (or leave blank for generated)</label>
+          <input type="text" id="nftImg" placeholder="https://...">
+        </div>
+        <div class="field">
+          <label>Contract Address (ERC-721)</label>
+          <input type="text" id="nftContract" placeholder="0x... or deploy new">
+        </div>
+        <div class="field">
+          <label>Token ID</label>
+          <input type="number" id="nftTokenId" value="1">
+        </div>
+        <button class="btn btn-primary btn-full" onclick="mintNFT()">🎨 Mint NFT</button>
+        <div id="mintResult" style="margin-top:16px;"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">NFT Preview</div>
+        <div style="text-align:center;padding:20px;">
+          <div style="width:200px;height:200px;margin:0 auto;
+            background:linear-gradient(135deg,#001830,#003860);
+            border:1px solid var(--border); border-radius:16px;
+            display:flex;align-items:center;justify-content:center;
+            font-size:80px;" id="nftPreviewImg">🖼</div>
+          <div style="margin-top:16px;">
+            <div id="nftPreviewName" style="font-weight:700;font-size:16px;">Your NFT</div>
+            <div id="nftPreviewDesc" style="color:var(--muted);font-size:13px;margin-top:4px;">Description here</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Collection -->
+  <div class="tab-panel" id="nft-collection">
+    <div class="card">
+      <div class="card-title"><span class="icon">🗃</span> My NFT Collection</div>
+      <div id="nftGrid">
+        <div class="empty">
+          <div class="empty-icon">🖼</div>
+          <div class="empty-text">No NFTs found. Mint some!</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Transfer -->
+  <div class="tab-panel" id="nft-transfer">
+    <div class="card" style="max-width:480px;">
+      <div class="card-title"><span class="icon">📦</span> Transfer NFT</div>
+      <div class="field">
+        <label>NFT Contract Address</label>
+        <input type="text" id="nftXContract" placeholder="0x...">
+      </div>
+      <div class="field">
+        <label>Token ID</label>
+        <input type="number" id="nftXId" placeholder="1">
+      </div>
+      <div class="field">
+        <label>To Address</label>
+        <input type="text" id="nftXTo" placeholder="0x...">
+      </div>
+      <button class="btn btn-primary btn-full" onclick="transferNFT()">Transfer NFT</button>
+      <div id="nftXResult" style="margin-top:16px;"></div>
+    </div>
+  </div>
+</div></div>
+
+<!-- ════════════════ EXPLORER ════════════════ -->
+<div class="page" id="pg-explorer">
+<div class="main-wrap">
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-title"><span class="icon">🔍</span> Transaction Lookup</div>
+    <div style="display:flex;gap:12px;">
+      <input type="text" id="searchInput" placeholder="Tx hash, address, or block number..."
+        style="flex:1;background:rgba(0,0,0,0.4);border:1px solid var(--border);border-radius:8px;padding:12px 16px;color:var(--text);font-family:var(--font-mono);font-size:14px;outline:none;"
+        onkeydown="if(event.key==='Enter')doSearch()">
+      <button class="btn btn-primary" onclick="doSearch()">Search</button>
+    </div>
+  </div>
+
+  <div id="searchResult" style="margin-bottom:20px;"></div>
+
+  <div class="two-col">
+    <div class="card">
+      <div class="card-title"><span class="icon">📦</span> Latest Blocks</div>
+      <div id="latestBlocks">
+        <div class="empty"><div class="empty-text">Fetching...</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="icon">⚡</span> Latest Transactions</div>
+      <div id="latestTxs">
+        <div class="empty"><div class="empty-text">Fetching...</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:20px;text-align:center;padding:30px;">
+    <div style="font-size:14px;color:var(--muted);margin-bottom:16px;">For full explorer features, visit the official Arc Testnet explorer</div>
+    <button class="btn btn-primary" onclick="window.open('https://testnet.arcscan.app','_blank')">
+      🔍 Open testnet.arcscan.app
+    </button>
+  </div>
+</div></div>
+
+
+<!-- ════════════════ WALLET MODAL ════════════════ -->
+<div class="modal-bg" id="walletModal">
+  <div class="modal">
+    <div class="modal-title">
+      Connect Wallet
+      <button class="modal-close" onclick="closeWalletModal()">✕</button>
+    </div>
+
+    <div class="alert alert-warn" style="margin-bottom:20px;">
+      ⚠️ Normal browser mein MetaMask kaam nahi karta.<br>
+      Apna wallet browser use karo ya address manually enter karo.
+    </div>
+
+    <div style="font-family:var(--font-mono);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;">Open in Wallet Browser</div>
+
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px;">
+      <button class="btn btn-outline btn-full" onclick="openInMetaMask()" style="font-size:15px;padding:14px;">
+        🦊 Open in MetaMask Browser
+      </button>
+      <button class="btn btn-ghost btn-full" onclick="openInTrust()" style="font-size:15px;padding:14px;">
+        🛡️ Open in Trust Wallet
+      </button>
+      <button class="btn btn-ghost btn-full" onclick="openInCoinbase()" style="font-size:15px;padding:14px;">
+        🔵 Open in Coinbase Wallet
+      </button>
+    </div>
+
+    <div class="divider"></div>
+
+    <div style="font-family:var(--font-mono);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;">Ya Address Manually Enter Karo (Read-only)</div>
+    <div class="field">
+      <input type="text" id="manualAddr" placeholder="0x... apna wallet address">
+    </div>
+    <button class="btn btn-ghost btn-full" onclick="connectManual()">👁️ View Wallet (Read-only)</button>
+  </div>
+</div>
+
+<!-- ════════════════ SCRIPTS ════════════════ -->
+<script>
+// ── STATE ──
+let provider = null, signer = null, account = null;
+let txHistory = [];
+let deployedContracts = [];
+const ARC_CHAIN = {
+  chainId: '0x4CD0B2', // 5042002 in hex
+  chainName: 'Arc Testnet',
+  nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
+  rpcUrls: ['https://rpc.testnet.arc.network'],
+  blockExplorerUrls: ['https://testnet.arcscan.app']
+};
+
+// ── NAVIGATION ──
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('pg-'+id).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (id === 'explorer') fetchExplorerData();
+  if (id === 'wallet') refreshBalance();
+}
+
+function switchTab(group, id) {
+  document.querySelectorAll(`#pg-${group === 'ct' ? 'contracts' : 'nft'} .tab`).forEach(t => t.classList.remove('active'));
+  document.querySelectorAll(`#pg-${group === 'ct' ? 'contracts' : 'nft'} .tab-panel`).forEach(p => p.classList.remove('active'));
+  document.getElementById(`${group}-${id}`).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+// ── WALLET CONNECTION ──
+async function connectWallet() {
+  // Case 1: Already inside MetaMask / Trust / Coinbase built-in browser
+  if (window.ethereum) {
+    try {
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      account = accounts[0];
+      provider = new ethers.providers.Web3Provider(window.ethereum);
+      signer = provider.getSigner();
+      const network = await provider.getNetwork();
+      updateUI(network);
+      window.ethereum.on('accountsChanged', accs => { account = accs[0]; updateUI(); });
+      window.ethereum.on('chainChanged', () => {
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        provider.getNetwork().then(n => updateUI(n));
+      });
+    } catch(e) {
+      showAlert('walletAlert','err','Connection failed: ' + e.message);
+    }
+    return;
+  }
+
+  // Case 2: Normal mobile browser — show options modal
+  document.getElementById('walletModal').classList.add('open');
+}
+
+function closeWalletModal() {
+  document.getElementById('walletModal').classList.remove('open');
+}
+
+function openInMetaMask() {
+  const url = window.location.href;
+  // MetaMask deep link — opens current URL inside MetaMask browser
+  window.location.href = 'https://metamask.app.link/dapp/' + url.replace(/^https?:\/\//,'');
+}
+
+function openInTrust() {
+  const url = window.location.href;
+  window.location.href = 'https://link.trustwallet.com/open_url?coin_id=60&url=' + encodeURIComponent(url);
+}
+
+function openInCoinbase() {
+  const url = window.location.href;
+  window.location.href = 'https://go.cb-w.com/dapp?cb_url=' + encodeURIComponent(url);
+}
+
+// Manual address entry (read-only mode)
+async function connectManual() {
+  const addr = document.getElementById('manualAddr').value.trim();
+  if (!addr || !ethers.utils.isAddress(addr)) {
+    alert('Enter a valid address');
+    return;
+  }
+  account = addr;
+  provider = new ethers.providers.JsonRpcProvider('https://rpc.testnet.arc.network');
+  signer = null; // read-only
+  closeWalletModal();
+
+  document.getElementById('connectBtn').textContent = addr.slice(0,6)+'...'+addr.slice(-4);
+  document.getElementById('connectBtn').classList.add('connected');
+  document.getElementById('netDot').className = 'net-dot ok';
+  document.getElementById('netLabel').textContent = 'Arc Testnet (Read-only)';
+  document.getElementById('dashAddr').textContent = addr;
+  document.getElementById('walAddr').textContent = addr;
+  document.getElementById('netStatus').textContent = '🟡 Read-only mode';
+  document.getElementById('netStatus').style.color = 'var(--yellow)';
+
+  try {
+    const bal = await provider.getBalance(addr);
+    const f = parseFloat(ethers.utils.formatEther(bal)).toFixed(4);
+    document.getElementById('dashBalance').textContent = f + ' USDC';
+    document.getElementById('walBalance').textContent = f + ' USDC';
+    document.getElementById('dashNetwork').textContent = 'Arc Testnet';
+    const block = await provider.getBlockNumber();
+    document.getElementById('dashBlock').textContent = '#' + block.toLocaleString();
+  } catch(e) {}
+
+  showAlert('walletAlert','warn','⚠️ Read-only mode. Open this site in MetaMask browser to sign transactions.');
+}
+
+async function updateUI(network) {
+  if (!account) return;
+  const short = account.slice(0,6)+'...'+account.slice(-4);
+
+  // topbar
+  document.getElementById('connectBtn').textContent = short;
+  document.getElementById('connectBtn').classList.add('connected');
+
+  // check network
+  const chainId = await provider.send('eth_chainId',[]);
+  const onArc = chainId === ARC_CHAIN.chainId;
+  document.getElementById('netDot').className = 'net-dot '+(onArc?'ok':'wrong');
+  document.getElementById('netLabel').textContent = onArc ? 'Arc Testnet' : 'Wrong Network';
+  document.getElementById('netStatus').textContent = onArc ? '🟢 Connected' : '🟡 Wrong network';
+  document.getElementById('netStatus').style.color = onArc ? 'var(--green)' : 'var(--yellow)';
+
+  // balance
+  const bal = await provider.getBalance(account);
+  const balFmt = parseFloat(ethers.utils.formatEther(bal)).toFixed(4);
+
+  document.getElementById('dashBalance').textContent = balFmt + ' USDC';
+  document.getElementById('dashNetwork').textContent = onArc ? 'Arc Testnet' : 'Chain '+chainId;
+  document.getElementById('dashAddr').textContent = account;
+  document.getElementById('walAddr').textContent = account;
+  document.getElementById('walBalance').textContent = balFmt + ' USDC';
+
+  // block
+  const block = await provider.getBlockNumber();
+  document.getElementById('dashBlock').textContent = '#'+block.toLocaleString();
+
+  // gas
+  try {
+    const gas = await provider.getGasPrice();
+    document.getElementById('dashGas').textContent = parseFloat(ethers.utils.formatUnits(gas,'gwei')).toFixed(2);
+  } catch(e) { document.getElementById('dashGas').textContent = '—'; }
+
+  // token list
+  document.getElementById('tokenList').innerHTML = `
+    <div class="token-item">
+      <div><div class="token-name">USDC</div><div style="color:var(--muted);font-size:12px;">Arc Testnet Native</div></div>
+      <div class="token-bal">${balFmt}</div>
+    </div>`;
+
+  if (!onArc) {
+    showAlert('walletAlert','warn','⚠️ You are not on Arc Testnet. Click "Add Arc Testnet to MetaMask" to switch.');
+  } else {
+    document.getElementById('walletAlert').innerHTML = '';
+  }
+}
+
+async function addArcNetwork() {
+  if (!window.ethereum) { alert('MetaMask not found!'); return; }
+  try {
+    await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [ARC_CHAIN] });
+  } catch(e) {
+    showAlert('walletAlert','err','Failed to add network: '+e.message);
+  }
+}
+
+async function refreshBalance() {
+  if (!provider || !account) return;
+  const bal = await provider.getBalance(account);
+  const f = parseFloat(ethers.utils.formatEther(bal)).toFixed(4);
+  document.getElementById('dashBalance').textContent = f+' USDC';
+  document.getElementById('walBalance').textContent = f+' USDC';
+}
+
+// ── FAUCET ──
+async function requestFaucet() {
+  const addr = document.getElementById('faucetAddr').value.trim();
+  const amt = document.getElementById('faucetAmount').value;
+  if (!addr) { showAlert('faucetResult','err','Enter a recipient address.'); return; }
+  if (!ethers.utils.isAddress(addr)) { showAlert('faucetResult','err','Invalid Ethereum address.'); return; }
+
+  const btn = document.getElementById('faucetBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span> Requesting...';
+
+  // Simulate faucet request (real faucet would need backend)
+  await sleep(2000);
+  showAlert('faucetResult','ok',`✅ Faucet request submitted for ${amt} USDC to ${addr.slice(0,10)}...
+  <br><small style="opacity:.7">Note: The Arc Testnet faucet is processed on-chain. Check <a href="https://testnet.arcscan.app/address/${addr}" target="_blank" style="color:var(--arc)">the explorer</a> to confirm.</small>`);
+  btn.disabled = false;
+  btn.textContent = '🚰 Request Tokens';
+}
+
+function useMyAddr() {
+  if (account) document.getElementById('faucetAddr').value = account;
+  else alert('Connect wallet first!');
+}
+
+// ── SEND ──
+async function previewTx() {
+  if (!signer) { showAlert('sendResult','err','Connect your wallet first.'); return; }
+  const to = document.getElementById('sendTo').value.trim();
+  const amt = document.getElementById('sendAmt').value;
+  if (!to || !ethers.utils.isAddress(to)) { showAlert('sendResult','err','Invalid recipient address.'); return; }
+  if (!amt || parseFloat(amt) <= 0) { showAlert('sendResult','err','Enter a valid amount.'); return; }
+
+  document.getElementById('previewBox').innerHTML = `
+    <strong>Transaction Preview</strong><br><br>
+    From: <code>${account}</code><br>
+    To: <code>${to}</code><br>
+    Amount: <strong>${amt} USDC</strong><br>
+    Gas Limit: ${document.getElementById('sendGas').value}<br>
+    Network: Arc Testnet`;
+  document.getElementById('sendForm').style.display = 'none';
+  document.getElementById('sendPreview').style.display = 'block';
+  document.getElementById('step2').classList.add('active');
+}
+
+function cancelPreview() {
+  document.getElementById('sendForm').style.display = 'block';
+  document.getElementById('sendPreview').style.display = 'none';
+  document.getElementById('sendResult').innerHTML = '';
+  document.getElementById('step2').classList.remove('active');
+}
+
+async function sendTx() {
+  const to = document.getElementById('sendTo').value.trim();
+  const amt = document.getElementById('sendAmt').value;
+  const data = document.getElementById('sendData').value || '0x';
+  const gasLimit = parseInt(document.getElementById('sendGas').value) || 21000;
+
+  try {
+    showAlert('sendResult','info','<span class="spin"></span> Sending transaction...');
+    const tx = await signer.sendTransaction({
+      to, value: ethers.utils.parseEther(amt),
+      data, gasLimit
+    });
+    showAlert('sendResult','ok',`✅ TX Sent! Hash: <a href="https://testnet.arcscan.app/tx/${tx.hash}" target="_blank" class="tx-hash">${tx.hash.slice(0,20)}...</a>`);
+
+    // add to history
+    txHistory.unshift({ hash: tx.hash, to, amt, status:'pending', time: new Date().toLocaleTimeString() });
+    renderTxHistory();
+    tx.wait().then(r => {
+      txHistory[0].status = r.status === 1 ? 'ok' : 'fail';
+      renderTxHistory();
+    });
+
+    document.getElementById('step3').classList.add('active');
+    document.getElementById('sendPreview').style.display = 'none';
+    document.getElementById('sendForm').style.display = 'block';
+
+  } catch(e) {
+    showAlert('sendResult','err','❌ Error: '+e.message);
+  }
+}
+
+function renderTxHistory() {
+  const el = document.getElementById('sendHistory');
+  const el2 = document.getElementById('txList');
+  if (!txHistory.length) { el.innerHTML = '<div class="empty"><div class="empty-text">No history</div></div>'; return; }
+  const html = txHistory.map(t=>`
+    <div class="tx-item">
+      <div>
+        <div class="tx-hash" onclick="window.open('https://testnet.arcscan.app/tx/${t.hash}','_blank')">${t.hash.slice(0,20)}...</div>
+        <div style="font-size:12px;color:var(--muted);">→ ${t.to.slice(0,10)}... &nbsp; ${t.amt} USDC &nbsp; ${t.time}</div>
+      </div>
+      <div class="tx-status ${t.status}">${t.status}</div>
+    </div>`).join('');
+  el.innerHTML = html;
+  if (el2) el2.innerHTML = html;
+}
+
+// ── CONTRACTS ──
+async function deployContract() {
+  if (!signer) { showAlert('deployResult','err','Connect wallet first.'); return; }
+  const bytecode = document.getElementById('ctBytecode').value.trim();
+  const abiRaw = document.getElementById('ctABI').value.trim();
+  const argsRaw = document.getElementById('ctArgs').value.trim();
+  const name = document.getElementById('ctName').value.trim() || 'Contract';
+
+  if (!bytecode) { showAlert('deployResult','err','Enter contract bytecode.'); return; }
+
+  try {
+    let abi = [];
+    if (abiRaw) abi = JSON.parse(abiRaw);
+    let args = [];
+    if (argsRaw) args = JSON.parse(argsRaw);
+
+    showAlert('deployResult','info','<span class="spin"></span> Deploying...');
+    const factory = new ethers.ContractFactory(abi, bytecode, signer);
+    const contract = await factory.deploy(...args);
+    await contract.deployed();
+
+    deployedContracts.push({ name, address: contract.address, abi });
+    renderDeployedList();
+    showAlert('deployResult','ok',`✅ Deployed! Address: <a href="https://testnet.arcscan.app/address/${contract.address}" target="_blank" class="tx-hash">${contract.address}</a>`);
+  } catch(e) {
+    showAlert('deployResult','err','❌ Error: '+e.message);
+  }
+}
+
+function renderDeployedList() {
+  document.getElementById('deployedList').innerHTML = deployedContracts.map(c=>`
+    <div style="padding:8px 0;border-bottom:1px solid var(--border);">
+      <div style="font-weight:700;font-size:13px;">${c.name}</div>
+      <div class="tx-hash" onclick="window.open('https://testnet.arcscan.app/address/${c.address}','_blank')" style="font-size:12px;">${c.address.slice(0,20)}...</div>
+    </div>`).join('');
+}
+
+function loadTemplate(type) {
+  const templates = {
+    simple: {
+      name:'SimpleStorage',
+      bytecode:'0x608060405234801561001057600080fd5b5061012f806100206000396000f3fe6080604052348015600f57600080fd5b506004361060325760003560e01c80632e64cec11460375780636057361d14603f575b600080fd5b603d6057565b005b60556004803603810190605191906095565b6060565b005b60005481565b8060008190555050565b600080fd5b6000819050919050565b607381606c565b8114607d57600080fd5b50565b600081359050608f81606c565b92915050565b60006020828403121560a85760a760677565b5b600060b4848285016080565b9150509291505056fea264697066735822122048bed5b61cfed2ab81c07b6e33f23bc0aac56e90555f0fd2dd4da1e0c5f7fa7b64736f6c63430008110033',
+      abi:'[{"inputs":[],"name":"retrieve","outputs":[{"type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"name":"num","type":"uint256"}],"name":"store","outputs":[],"stateMutability":"nonpayable","type":"function"}]'
+    }
+  };
+  const t = templates[type];
+  if (t) {
+    document.getElementById('ctName').value = t.name;
+    document.getElementById('ctBytecode').value = t.bytecode || '';
+    document.getElementById('ctABI').value = t.abi || '';
+  } else {
+    showAlert('deployResult','info','Template for '+type+' — paste your compiled bytecode here.');
+  }
+}
+
+async function loadContract() {
+  if (!provider) { alert('Connect wallet first.'); return; }
+  const addr = document.getElementById('interactAddr').value.trim();
+  const abiRaw = document.getElementById('interactABI').value.trim();
+  if (!addr || !abiRaw) { alert('Enter address and ABI.'); return; }
+
+  try {
+    const abi = JSON.parse(abiRaw);
+    const contract = new ethers.Contract(addr, abi, signer || provider);
+    const functions = abi.filter(x=>x.type==='function');
+    const html = functions.map(f=>`
+      <div class="method-item">
+        <div class="method-header" onclick="toggleMethod(this)">
+          <span class="method-name">${f.name}(${(f.inputs||[]).map(i=>i.type+' '+i.name).join(',')})</span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="method-type ${f.stateMutability==='view'||f.stateMutability==='pure'?'read':'write'}">${f.stateMutability==='view'||f.stateMutability==='pure'?'READ':'WRITE'}</span>
+            <span>▾</span>
+          </div>
+        </div>
+        <div class="method-body" id="m-${f.name}">
+          ${(f.inputs||[]).map(i=>`<div class="field"><label>${i.name} (${i.type})</label><input type="text" id="arg-${f.name}-${i.name}" placeholder="${i.type}"></div>`).join('')}
+          <button class="btn btn-primary btn-sm" onclick="callMethod('${addr}', ${JSON.stringify(JSON.stringify(abi))}, '${f.name}', ${JSON.stringify((f.inputs||[]).map(i=>i.name))})">Execute</button>
+          <div id="res-${f.name}" style="margin-top:10px;"></div>
+        </div>
+      </div>`).join('');
+    document.getElementById('contractMethods').innerHTML = `<div class="card"><div class="card-title">Contract Methods</div>${html}</div>`;
+  } catch(e) { alert('Invalid ABI: '+e.message); }
+}
+
+function toggleMethod(el) {
+  const body = el.nextElementSibling;
+  body.classList.toggle('open');
+}
+
+async function callMethod(addr, abiStr, name, argNames) {
+  try {
+    const abi = JSON.parse(abiStr);
+    const contract = new ethers.Contract(addr, abi, signer || provider);
+    const args = argNames.map(n=>document.getElementById(`arg-${name}-${n}`).value);
+    const res = await contract[name](...args);
+    document.getElementById('res-'+name).innerHTML = `<div class="alert alert-ok">Result: ${res.toString()}</div>`;
+  } catch(e) {
+    document.getElementById('res-'+name).innerHTML = `<div class="alert alert-err">Error: ${e.message}</div>`;
+  }
+}
+
+function openVerify() {
+  const addr = document.getElementById('verifyAddr').value.trim();
+  const url = addr ? `https://testnet.arcscan.app/address/${addr}#code` : 'https://testnet.arcscan.app';
+  window.open(url,'_blank');
+}
+
+// ── NFT ──
+async function mintNFT() {
+  if (!signer) { showAlert('mintResult','err','Connect wallet first.'); return; }
+  const contract = document.getElementById('nftContract').value.trim();
+  const tokenId = document.getElementById('nftTokenId').value;
+  const to = document.getElementById('nftXTo').value || account;
+
+  if (!contract || !ethers.utils.isAddress(contract)) {
+    showAlert('mintResult','warn','Enter a valid ERC-721 contract address.');
+    return;
+  }
+
+  const erc721ABI = ['function mint(address to, uint256 tokenId) public', 'function safeMint(address to, uint256 tokenId) public'];
+  try {
+    showAlert('mintResult','info','<span class="spin"></span> Minting...');
+    const nft = new ethers.Contract(contract, erc721ABI, signer);
+    const tx = await nft.safeMint(account, tokenId);
+    await tx.wait();
+    showAlert('mintResult','ok',`✅ NFT Minted! Token #${tokenId} <a href="https://testnet.arcscan.app/tx/${tx.hash}" target="_blank" class="tx-hash">View TX</a>`);
+  } catch(e) {
+    showAlert('mintResult','err','❌ '+e.message);
+  }
+}
+
+async function transferNFT() {
+  if (!signer) { showAlert('nftXResult','err','Connect wallet first.'); return; }
+  const contract = document.getElementById('nftXContract').value.trim();
+  const tokenId = document.getElementById('nftXId').value;
+  const to = document.getElementById('nftXTo').value.trim();
+
+  if (!contract || !to) { showAlert('nftXResult','err','Fill all fields.'); return; }
+
+  const abi = ['function transferFrom(address from, address to, uint256 tokenId) public'];
+  try {
+    showAlert('nftXResult','info','<span class="spin"></span> Transferring...');
+    const nft = new ethers.Contract(contract, abi, signer);
+    const tx = await nft.transferFrom(account, to, tokenId);
+    await tx.wait();
+    showAlert('nftXResult','ok',`✅ NFT #${tokenId} transferred! <a href="https://testnet.arcscan.app/tx/${tx.hash}" target="_blank" class="tx-hash">View TX</a>`);
+  } catch(e) {
+    showAlert('nftXResult','err','❌ '+e.message);
+  }
+}
+
+// Update NFT preview live
+['nftName','nftDesc','nftImg'].forEach(id=>{
+  document.getElementById(id).addEventListener('input',()=>{
+    const name = document.getElementById('nftName').value || 'Your NFT';
+    const desc = document.getElementById('nftDesc').value || 'Description here';
+    const img = document.getElementById('nftImg').value;
+    document.getElementById('nftPreviewName').textContent = name;
+    document.getElementById('nftPreviewDesc').textContent = desc;
+    const imgEl = document.getElementById('nftPreviewImg');
+    if (img) imgEl.innerHTML = `<img src="${img}" style="width:100%;height:100%;object-fit:cover;border-radius:16px;" onerror="this.parentElement.textContent='🖼'">`;
+    else imgEl.textContent = '🖼';
+  });
+});
+
+// ── EXPLORER ──
+async function doSearch() {
+  const q = document.getElementById('searchInput').value.trim();
+  if (!q) return;
+
+  // Detect type
+  if (q.startsWith('0x') && q.length === 66) {
+    window.open('https://testnet.arcscan.app/tx/'+q,'_blank');
+  } else if (q.startsWith('0x') && q.length === 42) {
+    window.open('https://testnet.arcscan.app/address/'+q,'_blank');
+  } else if (!isNaN(q)) {
+    window.open('https://testnet.arcscan.app/block/'+q,'_blank');
+  } else {
+    showSearchResult('info','Opening explorer search for: '+q);
+    window.open('https://testnet.arcscan.app/search?q='+encodeURIComponent(q),'_blank');
+  }
+}
+
+function showSearchResult(type, msg) {
+  document.getElementById('searchResult').innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+}
+
+async function fetchExplorerData() {
+  if (!provider) {
+    document.getElementById('latestBlocks').innerHTML = '<div class="empty"><div class="empty-text">Connect wallet for live data</div></div>';
+    return;
+  }
+  try {
+    const blockNum = await provider.getBlockNumber();
+    let blocksHTML = '';
+    for (let i=0;i<5;i++) {
+      const b = await provider.getBlock(blockNum - i);
+      if (b) blocksHTML += `<div class="tx-item"><div><div style="font-family:var(--font-mono);color:var(--arc);">#${b.number.toLocaleString()}</div><div style="font-size:12px;color:var(--muted);">${b.transactions.length} txs &nbsp; ${new Date(b.timestamp*1000).toLocaleTimeString()}</div></div><div class="tx-hash" onclick="window.open('https://testnet.arcscan.app/block/${b.number}','_blank')">View</div></div>`;
+    }
+    document.getElementById('latestBlocks').innerHTML = blocksHTML || '<div class="empty"><div class="empty-text">No blocks</div></div>';
+
+    // show last few txs from history
+    if (txHistory.length) {
+      renderTxHistory();
+      document.getElementById('latestTxs').innerHTML = document.getElementById('sendHistory').innerHTML;
+    } else {
+      document.getElementById('latestTxs').innerHTML = '<div class="empty"><div class="empty-text">No recent txs</div></div>';
+    }
+  } catch(e) {
+    document.getElementById('latestBlocks').innerHTML = '<div class="empty"><div class="empty-text">Error fetching data</div></div>';
+  }
+}
+
+// ── UTILS ──
+function showAlert(el, type, msg) {
+  const icons = { info:'ℹ️', ok:'✅', warn:'⚠️', err:'❌' };
+  document.getElementById(el).innerHTML = `<div class="alert alert-${type}">${icons[type]} ${msg}</div>`;
+}
+
+function copyAddr() {
+  if (!account) { alert('Connect wallet first!'); return; }
+  navigator.clipboard.writeText(account);
+  alert('Address copied!');
+}
+
+function viewOnExplorer() {
+  if (!account) return;
+  window.open('https://testnet.arcscan.app/address/'+account,'_blank');
+}
+
+function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
+
+// Auto-connect if already authorized
+window.addEventListener('load', async () => {
+  if (window.ethereum) {
+    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+    if (accounts.length) {
+      account = accounts[0];
+      provider = new ethers.providers.Web3Provider(window.ethereum);
+      signer = provider.getSigner();
+      const network = await provider.getNetwork();
+      updateUI(network);
+    }
+  }
+});
+</script>
+</body>
+</html>
